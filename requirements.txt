@@ -1,0 +1,4 @@
+bottle
+pyusb
+future
+serial

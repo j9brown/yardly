@@ -1,0 +1,3 @@
+[submodule "rfcat"]
+	path = rfcat
+	url = git@github.com:atlas0fd00m/rfcat.git
