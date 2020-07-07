@@ -82,7 +82,9 @@ def sendFanBits(bits, repeats=16):
     radio.setMdmModulation(rflib.MOD_ASK_OOK)
     radio.setMdmDRate(3000)
     radio.setMdmSyncMode(0)
+    radio.setMaxPower()
     radio.RFxmit(bitsToBytes(modulatedBits))
+    radio.setModeIDLE()
 
 def encodeFanCommand(code, command):
     bits = ""
@@ -165,8 +167,9 @@ def sendMattressBits(bits, repeats=3):
     radio.setMdmModulation(rflib.MOD_ASK_OOK)
     radio.setMdmDRate(1600)
     radio.setMdmSyncMode(0)
-    print modulatedBits
+    radio.setMaxPower()
     radio.RFxmit(bitsToBytes(modulatedBits))
+    radio.setModeIDLE()
 
 def encodeMattressCommand(code, on, zone, level, stayOn, preheat):
     bits = zone
