@@ -28,6 +28,10 @@ docker-compose up -d
 curl http://myserver:8111/ping
 ```
 
+You may need to edit `docker-compose.yaml` if your YardStick One dongle
+appears at a different location in dev than `/dev/RFCAT1`.  Alternatively, you can
+modify `/etc/udev/rules.d/20-rfcat.rules` to assign different symlinks.
+
 ## Standalone Installation
 
 You can also run Yardly standalone but you'll first have to build and install
@@ -167,6 +171,8 @@ Error in resetup():USBError(5, u'Input/Output Error')
 
 - This sometimes happens after yardly is stopped and restarted.
 - Try unplugging the YardStick One and plugging it back in again to reset it.
+
+
 
 # Contributing
 
