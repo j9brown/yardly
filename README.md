@@ -22,7 +22,7 @@ spares you from having to install Python 2.7 (needed by the rfcat library).
 ```
 git clone (this repo)
 cd yardly
-git submodule update
+git submodule update --init
 docker-compose build
 docker-compose up -d
 curl http://myserver:8111/ping
