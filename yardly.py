@@ -6,6 +6,7 @@ import bottle
 
 app = bottle.Bottle()
 radio = rflib.RfCat()
+radio.setModeIDLE()
 
 # Converts an array of 0s and 1s to a string.
 def bitsToBytes(bits):
