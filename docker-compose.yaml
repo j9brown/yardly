@@ -6,8 +6,8 @@ services:
     image: yardly:latest
     ports:
       - "8111:8111"
-    devices:
-      - "/dev/RFCAT1:/dev/RFCAT1"
     volumes:
       - "/dev/bus/usb:/dev/bus/usb"
+    devices:
+      - "/dev/RFCAT1:/dev/RFCAT1"
     restart: always

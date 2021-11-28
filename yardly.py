@@ -26,6 +26,21 @@ def bitsToBytes(bits):
         position = 128
     return bytes
 
+# Generates a sequence of modulated bits based on a given encoding.
+def modulate(bits, zero, one):
+    modulatedBits = ""
+    for bit in bits:
+        if bit == "0":
+            modulatedBits += zero
+        else:
+            modulatedBits += one
+    return modulatedBits
+
+# Generates a sequence of modulated bits based on a given encoding
+# in reversed order.
+def modulateReversed(bits, zero, one):
+    return modulate(bits[::-1], zero, one)
+
 # Sends a 13 bit ceiling fan command to the radio.
 # Bits must be specified as a string of 1s and 0s.
 #
@@ -53,7 +68,7 @@ def bitsToBytes(bits):
 # Bits are sent over the radio from MSB to LSB.
 #
 # Frequency:    303.875 MhZ
-# Mode:         ASK
+# Mode:         OOK
 # Rate:         1000 symbols per second / 3000 modulations per second
 # Symbols:      0 -> "100", 1 -> "101"
 # Guard:        36 modulations = 12 ms
@@ -66,12 +81,7 @@ def bitsToBytes(bits):
 # Use 400 ms (16 repeats) for reliability.
 def sendFanBits(bits, repeats=16):
     # Apply modulation
-    modulatedBits = ""
-    for bit in bits:
-        if bit == "0":
-            modulatedBits += "100"
-        else:
-            modulatedBits += "101"
+    modulatedBits = modulate(bits, "100", "101")
 
     # Add evenly spaced guards (multiples of 3 modulations)
     guard = "0" * 36
@@ -146,18 +156,13 @@ def encodeFanCommand(code, command):
 # Bits are sent over the radio from LSB to MSB.
 #
 # Frequency:    418 MhZ
-# Mode:         ASK
+# Mode:         OOK
 # Rate:         533 symbols per second / 1600 modulations per second
 # Symbols:      0 -> "100", 1 -> "101"
 # Start:        "111111000000"
 def sendMattressBits(bits, repeats=3):
     # Apply modulation
-    modulatedBits = ""
-    for bit in bits[::-1]:
-        if bit == "0":
-            modulatedBits += "100"
-        else:
-            modulatedBits += "101"
+    modulatedBits = modulateReversed(bits, "100", "101")
 
     # Add marks, breaks, and repetitions
     modulatedBits = ("111111000000" + modulatedBits) * repeats
@@ -183,6 +188,58 @@ def encodeMattressCommand(code, on, zone, level, stayOn, preheat):
     checksum = format(bits.count("1"), "06b")
     return checksum + bits
 
+# Sends a 25 bit Zephyr range hood command to the radio.
+# Bits must be specified as a string of 1s and 0s.
+#
+#   bit  0-15: 16-bit address
+#   bit 16-23: 8-bit command
+#   bit    24: zero
+#
+# Commands
+#   00000011 : blower speed selection
+#   00001100 : off
+#   00110000 : light toggle
+#   11000000 : delay
+#
+# Bits are sent over the radio from MSB to LSB.
+#
+# Frequency:    315.000 MhZ (measured 315.1425 MhZ)
+# Mode:         OOK
+# Rate:         1000 symbols per second / 3000 modulations per second
+# Symbols:      0 -> "100", 1 -> "110"
+# Guard:        24 modulations = 8 ms
+# Code length:  25 symbols + guard = 99 modulations = 33 ms
+def sendZephyrBits(bits, repeats=3):
+    # Apply modulation
+    modulatedBits = modulate(bits, "100", "110")
+
+    # Add evenly spaced guards (multiples of 3 modulations)
+    guard = "0" * 24
+    modulatedBits = guard + (modulatedBits + guard) * repeats
+
+    # Transmit
+    radio.setFreq(315000000)
+    radio.setMdmModulation(rflib.MOD_ASK_OOK)
+    radio.setMdmDRate(3000)
+    radio.setMdmSyncMode(0)
+    radio.setMaxPower()
+    radio.RFxmit(bitsToBytes(modulatedBits))
+    radio.setModeIDLE()
+
+def encodeZephyrCommand(code, command):
+    bits = code
+    if command == "blower":
+        bits += "00000011"
+    elif command == "off":
+        bits += "00001100"
+    elif command == "light":
+        bits += "00110000"
+    elif command == "delay":
+        bits += "11000000"
+    else:
+        return None
+    return bits
+
 # Replies with pong.
 @app.get("/ping")
 def handlePingRequest():
@@ -198,9 +255,9 @@ def handlePingRequest():
 def handleFanRequest(code, command):
     bits = encodeFanCommand(code, command)
     if bits == None:
-        bottle.abort(400, "Invalid fan command")
+        bottle.abort(400, "Invalid command")
     sendFanBits(bits)
-    return "sent fan bits " + bits
+    return "sent bits " + bits
 
 # Sends raw bits to a fan.
 #
@@ -209,7 +266,7 @@ def handleFanRequest(code, command):
 @app.post("/fanBits/<bits:re:[0-1]+>/<repeats:int>")
 def handleFanBitsRequest(bits, repeats):
     sendFanBits(bits, repeats)
-    return "sent fan bits " + bits
+    return "sent bits " + bits
 
 # Sends a mattress pad off command.
 #
@@ -218,7 +275,7 @@ def handleFanBitsRequest(bits, repeats):
 def handleMattressOffRequest(code):
     sendMattressBits(encodeMattressCommand(code, False, "100", 0, False, False))
     sendMattressBits(encodeMattressCommand(code, False, "000", 0, False, False))
-    return "sent mattress off command"
+    return "sent off command"
 
 # Sends a mattress pad on command.
 #
@@ -231,7 +288,7 @@ def handleMattressOffRequest(code):
 def handleMattressOnRequest(code, command):
     m = re.match(r'^(\d+),(\d+),(\d+),(\d+),(\d+),(\d+)(,stayOn)?(,preheat)?$', command)
     if m == None:
-        bottle.abort(400, "Invalid mattress command")
+        bottle.abort(400, "Invalid command")
     heat = [
       int(m.group(1)),
       int(m.group(2)),
@@ -248,7 +305,7 @@ def handleMattressOnRequest(code, command):
     sendMattressBits(encodeMattressCommand(code, True, "000", heat[3], stayOn, preheat))
     sendMattressBits(encodeMattressCommand(code, True, "001", heat[4], stayOn, preheat))
     sendMattressBits(encodeMattressCommand(code, True, "010", heat[5], stayOn, preheat))
-    return "sent mattress on command"
+    return "sent on command"
 
 # Sends raw bits to a mattress pad.
 #
@@ -257,6 +314,27 @@ def handleMattressOnRequest(code, command):
 @app.post("/mattressBits/<bits:re:[0-1]+>/<repeats:int>")
 def handleMattressBitsRequest(bits, repeats):
     sendMattressBits(bits, repeats)
-    return "sent mattress bits " + bits
+    return "sent bits " + bits
+
+# Sends a Zephyr range hood command.
+#
+#   code: remote code (string of 16 bits)
+#   command: "blower", "off", "light", "delay"
+@app.post("/zephyr/<code:re:[0-1]{16}>/<command>")
+def handleZephyrRequest(code, command):
+    bits = encodeZephyrCommand(code, command)
+    if bits == None:
+        bottle.abort(400, "Invalid command")
+    sendFanBits(bits)
+    return "sent bits " + bits
+
+# Sends raw bits to a Zephyr range hood.
+#
+#   bits: string of 0s and 1s
+#   repeat: number of repetitions to send
+@app.post("/zephyrBits/<bits:re:[0-1]+>/<repeats:int>")
+def handleZephyrBitsRequest(bits, repeats):
+    sendZephyrBits(bits, repeats)
+    return "sent bits " + bits
 
 bottle.run(app, host="0.0.0.0", port=8111)

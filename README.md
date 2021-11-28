@@ -152,6 +152,46 @@ curl -X POST http://myserver:8111/mattress/00000/on/0,1,2,1,2,10,stayOn,preheat
 curl -X POST http://myserver:8111/mattress/00000/off
 ```
 
+## Zephyr Range Hoods (315.000 MHz)
+
+Emulates the behavior of the Zephyr range hood remote control model 14000005.
+
+Each remote has a distinct code that is set by the manufacturer.  It appears
+to be 16 bits although the encoding might actually consist of a fixed preamble
+and a shorter code (needs further testing).
+
+To pair the remote, press and hold the lights button on the range hood until
+the LCD begins blinking, release it, then send the "light" command with the radio.
+
+URL: "http://(hostname):8111/zephyr/(code)/(command)"
+
+Code: A string of 16 zeroes and ones unique to the remote, e.g. `00000001000010100`
+
+Commands:
+
+- `blower`
+
+  Turns on the blower and cycles through all six blower speeds.
+
+- `off`
+
+  Turns off the blower.  Sending again will turn off the lights too.
+
+- `light`
+
+  Toggles the light state on, dim, or off.
+
+- `delay`
+
+  Changes the blower to speed 1 then shuts off the blower and lights after 5 minutes.
+
+Examples:
+
+```
+curl -X POST http://myserver:8111/zephyr/00000001000010100/blower
+curl -X POST http://myserver:8111/zephyr/00000001000010100/off
+```
+
 # Troubleshooting
 
 The YardStick One is a bit fussy to work with.  If you see the following messages,
